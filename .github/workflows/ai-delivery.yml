@@ -1,0 +1,62 @@
+name: AI Delivery Pipeline
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ---------------------------------------------------------
+  # JOB 1: THE AI REVIEWER (The "Second Pair of Eyes")
+  # ---------------------------------------------------------
+  ai-review:
+    if: github.event_name == 'pull_request' && github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: AI Code Reviewer
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # INSTRUCTIONS: Tell the AI what you care about
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            1. Security: Check for hardcoded API keys.
+            2. Standards: Ensure we used the new SAFE 6.0 naming conventions.
+            3. Tests: Warn if the user forgot to include unit tests.
+
+  # ---------------------------------------------------------
+  # JOB 2: THE ENFORCER (Run the tests Claude wrote)
+  # ---------------------------------------------------------
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Environment
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      
+      - name: Run Tests
+        run: |
+          npm ci
+          npm run test:unit
+          # If Claude's local tests fail here, the Merge Button is disabled.
+
+  # ---------------------------------------------------------
+  # JOB 3: THE DEPLOYMENT (Only after Human Merge)
+  # ---------------------------------------------------------
+  deploy-production:
+    needs: [quality-gate]
+    # Only run if code was merged to main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: echo "🚀 Deploying to Production..."
