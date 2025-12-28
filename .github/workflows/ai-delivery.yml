@@ -34,20 +34,28 @@ jobs:
   # ---------------------------------------------------------
   # JOB 2: THE ENFORCER (Run the tests Claude wrote)
   # ---------------------------------------------------------
+  # ... inside jobs: ...
+
   quality-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Environment
-        uses: actions/setup-node@v4
-        with: { node-version: '20' }
+      
+      # FIX: Use Python, not Node
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+      
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx  # Ensure testing tools are installed
       
       - name: Run Tests
         run: |
-          npm ci
-          npm run test:unit
-          # If Claude's local tests fail here, the Merge Button is disabled.
-
+          pytest
+          # This runs your Python tests instead of 'npm run test:unit'
   # ---------------------------------------------------------
   # JOB 3: THE DEPLOYMENT (Only after Human Merge)
   # ---------------------------------------------------------
